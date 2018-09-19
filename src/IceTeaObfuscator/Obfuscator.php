@@ -33,7 +33,7 @@ class Obfuscator
 	/**
 	 * @var bool
 	 */
-	public $cli = false;
+	public $shebang = null;
 
 	/**
 	 * @var array
@@ -60,7 +60,9 @@ class Obfuscator
 	{
 		$this->h = fopen($this->to, "w");
 		flock($this->h, LOCK_EX);
-		$this->cli and fwrite($this->h, "#!/usr/bin/env php\n");
+		if ($this->shebang !== null && is_string($this->shebang)) {
+			fwrite($this->h, $this->shebang."\n");
+		}
 		fwrite($this->h, "<?php\n");
 	}
 
@@ -195,7 +197,7 @@ class Obfuscator
 			$this->escape(gzdeflate("/**".$this->genName(10)."\n".$this->genName(15)."\t".$this->genName(40)."*/")).
 			"\")) xor exit(".
 			"{$decryptor}(\"".
-			$this->escape(self::encrypt("\n\nSegmentation fault (core dumped)\n", $segmentKey, false)).
+			$this->escape(self::encrypt("\n\nSegmentation fault\n", $segmentKey, false)).
 			"\", \"".$this->escape($segmentKey)."\",!!!0xbc1)));".
 			$file;
 		$file = 
@@ -373,7 +375,6 @@ class Obfuscator
 		fprintf(STDOUT, "Output file\t: ".realpath($this->to)."\n");
 		fprintf(STDOUT, "Key file\t: ".$this->key."\n");
 		fprintf(STDOUT, "LC Hash \t: ".$hash."\n");
-		exit(0);
 	}
 
 	/**
