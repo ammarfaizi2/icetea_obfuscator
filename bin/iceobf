@@ -86,7 +86,11 @@ if ($sFile === 0) {
 // 	"shebang" => $shebang,
 // 	"key" => $key
 // ]);
+// die;
 
 $st = new Obfuscator($files[0], $outfile);
 $st->setKey($key);
+if (is_string($shebang)) {
+	$st->setShebang($shebang);
+}
 $st->obfuscate();
