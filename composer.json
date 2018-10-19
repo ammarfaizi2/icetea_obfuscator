@@ -1,0 +1,14 @@
+{
+    "name": "ammarfaizi2/icetea-obfuscator",
+    "description": "IceTea PHP Obfuscator",
+    "type": "project",
+    "license": "MIT",
+    "authors": [
+        {
+            "name": "Ammar Faizi",
+            "email": "ammarfaizi2@gmail.com"
+        }
+    ],
+    "minimum-stability": "stable",
+    "require": {}
+}
