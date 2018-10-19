@@ -13,12 +13,15 @@ function err(string $msg): void
 
 array_shift($argv);
 
+$key = null;
+$shebang = null;
 $outfile = "a.out.phx";
 $tSkip = 0;
 $files = [];
 foreach ($argv as $k => $v) {
 
 	if ($tSkip) {
+		$tSkip = 0;
 		continue;
 	}
 
@@ -38,6 +41,30 @@ foreach ($argv as $k => $v) {
 					$outfile = substr($v, 2);
 				}
 			}
+
+			if ($v[1] === "s") {
+				if ($vLen == 2) {
+					(
+						isset($argv[$k+1]) && $argv[$k+1][0] !== "-"
+					) or err("-s option needs a value.");
+					$shebang = $argv[$k+1];
+					$tSkip = 1;
+				} else {
+					$shebang = substr($v, 2);
+				}
+			}
+
+			if ($v[1] === "k") {
+				if ($vLen == 2) {
+					(
+						isset($argv[$k+1]) && $argv[$k+1][0] !== "-"
+					) or err("-k option needs a value.");
+					$key = $argv[$k+1];
+					$tSkip = 1;
+				} else {
+					$key = substr($v, 2);
+				}
+			}
 		}
 	} else {
 		$files[] = $v;
@@ -49,10 +76,11 @@ if (sizeof($files) === 0) {
 }
 
 var_dump([
-	"outfile" => $outfile
+	"outfile" => $outfile,
+	"shebang" => $shebang,
+	"key" => $key
 ]);
 
 die;
 $st = new Obfuscator();
 $st->obfuscate();
-
