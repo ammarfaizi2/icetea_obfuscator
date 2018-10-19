@@ -38,7 +38,7 @@ if (isset(
 	print shell_exec("php ".BIN_PATH."/iceobf {$argvd} 2>&1");
 	flush();
 	print "msg: Finished!\n";
-	print "msg: Output file: http://{$_SERVER['HTTP_HOST']}/storage/obfuscated/{$hash}.phx\n";
+	print "msg: Output file: https://{$_SERVER['HTTP_HOST']}/storage/obfuscated/{$hash}.phx\n";
 	flush();
 	exit;
 }
