@@ -25,7 +25,7 @@
 	<center>
 		<h1>Ice Tea PHP Obfuscator</h1>
 		<div class="cg">
-			<form method="post" action="action.php?r=1">
+			<form method="post" action="action.php?r=1" enctype="multipart/form-data">
 				<h2>Upload your PHP file!</h2>
 				<table>
 					<tr><td>File</td><td>:</td><td><input type="file" name="rfile" required/></td></tr>
