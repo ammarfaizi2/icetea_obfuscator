@@ -1,3 +1,4 @@
+*.lock
 *.tmp
-/.phpintel/
 /vendor/
+/.phpintel/

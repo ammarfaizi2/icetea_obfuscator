@@ -2,6 +2,16 @@
 
 namespace IceTeaObfuscator;
 
+defined("TMP_DIR") or exit("TMP_DIR is not defined!\n");
+
+use Exception;
+use PhpParser\Error;
+use PhpParser\NodeDumper;
+use PhpParser\ParserFactory;
+use PhpParser\PrettyPrinter;
+use PhpParser\Node\Expr\Variable;
+use PhpParser\Node\Scalar\EncapsedStringPart;
+
 /**
  * @author Ammar Faizi <ammarfaizi2@gmail.com> https://www.facebook.com/ammarfaizi2
  * @license MIT
@@ -22,7 +32,57 @@ final class Obfuscator
 	/**
 	 * @var string
 	 */
+	private $obfuscated;
+
+	/**
+	 * @var string
+	 */
 	private $outfile;
+
+	/**
+	 * @var string
+	 */
+	private $parsed;
+
+	/**
+	 * @var array
+	 */
+	private $memVar = [];
+
+	/**
+	 * @var string
+	 */
+	private $parsedHash;
+
+	/**
+	 * @var string
+	 */
+	private $key = null;
+
+	/**
+	 * @var array
+	 */
+	private $func = [];
+
+	/**
+	 * @var string
+	 */
+	private $strFunc;
+
+	/**
+	 * @var string
+	 */
+	private $decryptorName;
+
+	/**
+	 * @var string
+	 */
+	private $keyForKey;
+
+	/**
+	 * @var string
+	 */
+	private $matcherBool = true;
 
 	/**
 	 * @param string $file
@@ -32,6 +92,15 @@ final class Obfuscator
 	{
 		$this->file = $file;
 		$this->outfile = $outfile;
+
+		if (!file_exists($this->file)) {
+			throw new Exception("File {$this->file} does not exist");
+		}
+	}
+
+	public function setKey(string $key): void
+	{
+		$this->key = $key;
 	}
 
 	/**
@@ -44,19 +113,268 @@ final class Obfuscator
 	}
 
 	/**
+	 * @param string
+	 */
+	public function getParsedBody(): string
+	{
+		return $this->parsed;
+	}
+
+	/**
+	 * @param string $str
+	 * @return string
+	 */
+	private function chrToHex($str)
+	{
+		return "\\x".dechex(ord($str));
+	}
+
+	/**
+	 * @param string $str
+	 * @return string
+	 */
+	private function chrToOct($str)
+	{
+		return "\\".decoct(ord($str));
+	}
+
+	/**
+	 * @param string $str
+	 * @return string
+	 */
+	private function convert($str)
+	{
+		$r = "";
+		foreach (str_split($str) as $char) {
+			$r .= rand(2, 3) % 2 ? $this->chrToOct($char) : $this->chrToHex($char);
+		}
+		return $r;
+	}
+
+	/**
+	 * @param int $n
+	 * @param bool $noExtended
+	 * @return string
+	 */
+	private function gen(int $n, bool $noExtendedAscii = false): string
+	{
+		$r = "";
+		$a = "qwertyuiopasdfghjklzxcvbnmQWERTYUIOPASDFGHJKLZXCVBNM_";
+		if (! $noExtendedAscii) {
+			for ($i=0; $i < 5; $i++) { 
+				for ($i=135; $i < 255; $i++) { 
+					$a .= chr($i);
+				}
+			}
+		}
+		$c = strlen($a) - 1;
+		$r.= $a[rand(0, $c)];
+		if ($n === 1) {
+			return $r;
+		}
+		$a.= "1234567890";
+		$c = strlen($a) - 1;
+		$n--;
+		for ($i=0; $i < $n; $i++) { 
+			$r.= $a[rand(0, $c)];
+		}
+		return $r;
+	}
+
+	/**
+	 * @param int $n
+	 * @param bool $noExtended
+	 * @return string
+	 */
+	private function gen2(int $n): string
+	{
+		$r = "";
+		$a = range(chr(0), chr(255));
+		$c = count($a) - 1;
+		for ($i=0; $i < $n; $i++) { 
+			$r.= $a[rand(0, $c)];
+		}
+		return $r;
+	}
+
+	/**
+	 * @param mixed $v
 	 * @return void
 	 */
-	private function parse(): void
+	private function varChanger($v): void
+	{
+		foreach($v as $k => $v) {
+			if ($v instanceof Variable) {				
+				if (isset($this->memVar[$v->name])) {
+					$v->name = $this->memVar[$v->name];
+				} else {
+					$this->memVar[$v->name] = $this->gen(8);
+					$v->name = $this->memVar[$v->name];
+				}
+			} else {
+				$this->varChanger($v);
+			}
+		}
+	}
+
+	/**
+	 * @return void
+	 */
+	public function parse(): void
+	{
+		$parser = (new ParserFactory)->create(ParserFactory::PREFER_PHP7);
+
+		try {
+		    $ast = $parser->parse(file_get_contents($this->file));
+		} catch (Error $error) {
+		    throw new Expcetion("PHP file error: Parse error: {$error->getMessage()}");
+		}
+
+		foreach ($ast as $k => &$v) {
+			@$this->varChanger($v);
+		}
+
+		$prettyPrinter = new PrettyPrinter\Standard;		
+		$this->parsed = 
+			"<?php ".
+			"/*\0\1\3\3\3\3\0\7\1\5\6\3\3\3\3".
+			// "/*".
+			"{$this->gen(32, 0)}".
+			"gnu.version_r.rela.dyn.rela.plt.init.plt.got.text.fini.rodata".
+			".eh_frame_hdr.eh_frame.gcc_except_table.init_array.fini_array".
+			".data.rel.ro.dynamic.data.bss.comment.debug_aranges.debug_info".
+			".debug_abbrev.de*/{$prettyPrinter->prettyPrint($ast)}".
+			// "/*@@@@@@.debug�*/";
+			"/*\1\1\1\0\0\0\5\2*/";
+		$this->parsedHash = sha1($this->parsed);
+		file_put_contents(TMP_DIR."/{$this->parsedHash}.phptmp", $this->parsed);
+		$this->parsed = trim(shell_exec("php -w ".TMP_DIR."/{$this->parsedHash}.phptmp"));
+		@unlink(TMP_DIR."/{$this->parsedHash}.phptmp");
+	}
+
+	/**
+	 * @return void
+	 */
+	private function prepareHashMatcher(): void
 	{
 
+	}
+
+	/**
+	 * @return void
+	 */
+	private function prepareFunctions(): void
+	{
+		$this->prepareHashMatcher();
+
+		$decryptor = gzdeflate(
+			$this->generateDecryptor(
+				$this->decryptorName = $this->gen(512)
+			)
+		);
+		$this->func = [
+			"base64_decode" => "\${$this->gen(4096 * 5)}",
+			"gzinflate" => "\${$this->gen(4096 * 5)}",
+		];
+
+
+		foreach($this->func as $k => $func) {
+			$nodefunct = str_replace("*", "std", $this->gen2(1024));
+			$this->strFunc .= "{$func}=\"{$this->convert($k)}\"/*{$nodefunct}*/XOR";
+		}
+		$this->strFunc .= " eval({$this->func['gzinflate']}(\"{$this->escape($decryptor)}\"))XOR";
 	}
 
 	/**
 	 * @return bool
 	 */
 	private function run(): bool
-	{
+	{		
+		$this->prepareFunctions();
+		$pnc = gzdeflate($this->encrypt("?>".$this->parsed, $this->key));
+		$this->keyForKey = $this->gen(32);
+		$encryptedKey = gzdeflate($this->encrypt($this->key, $this->keyForKey));
+		$enc = 
+			"{$this->decryptorName}(".
+			"{$this->func['gzinflate']}(\"".
+			"{$this->escape($pnc)}\"),{$this->decryptorName}(".
+			"{$this->func['gzinflate']}(".
+			"\"{$encryptedKey}\"),\$keyforkey))";
 
+		$enc = 
+			"(extension_loaded(\"{$this->convert("evalhook")}\") OR !{$this->matcherBool})AND sleep(rand(0x3, 0x2))".
+			"AND exit(\"{$this->convert("Segmentation fault\n")}\");".
+			"eval({$enc});";
+		$enc = 
+			"{$this->func['gzinflate']}(\"".
+			$this->escape(gzdeflate($enc)).
+			"\")";
+		$this->obfuscated = 
+			"<?php\n\n".
+"/**
+ * DO NOT EDIT THIS FILE BY HAND!
+ *
+ * Ice Tea PHP Obfuscator.
+ *
+ * @license MIT
+ * @version 0.0.1
+ * @link https://github.com/ammarfaizi2/icetea_obfuscator
+ *
+ * bb:\0\0\0\0\0\1\1\7\3\1\2\5\1\5\6\15\xa\2\5\15\1\2\4\1\3\3\3\3\7\5
+ *
+ *
+ * #include <php/obfd.h>
+ * #include <php/teaphp.h>
+ * #define STATE_HASH 21
+ * 
+ *
+ * get:".sha1($this->key)."
+ * set:a:1
+ * std:a:0
+ * std::no_defunct 1
+ */\n\nif (function_exists(\"signal\") && is_callable(\"signal\")) {\n\tsignal(SIGCHLD, SIG_IGN);\n}\n\n// * std::keyforkey 1\n\n\$keyforkey = \"{$this->convert($this->keyForKey)}\";\n\n".
+			"{$this->strFunc} ".
+			"eval({$enc});".
+			"__halt_compiler();{$this->gen2(1024)}";
+		file_put_contents($this->outfile, $this->obfuscated);
+		return false;
+	}
+
+	/**
+	 * @param string $str
+	 * @return string
+	 */
+	private function escape(string $str): string
+	{
+		return str_replace(
+			["\\", "\"", "\$"],
+			["\\\\", "\\\"", "\\\$"],
+			$str
+		);
+	}
+
+	/**
+	 * @param string $decryptorName
+	 * @return string
+	 */
+	private function generateDecryptor($decryptorName): string
+	{
+		$var = [
+			"string" => "\$".$this->gen(rand(10, 20)),
+			"key" => "\$".$this->gen(rand(10, 20)),
+			"binary" => "\$".$this->gen(rand(10, 20)),
+			"slen" => "\$".$this->gen(rand(10, 20)),
+			"salt" => "\$".$this->gen(rand(10, 20)),
+			"klen" => "\$".$this->gen(rand(10, 20)),
+			"new" => "\$".$this->gen(rand(10, 20)),
+			"r" => "\$".$this->gen(rand(10, 20)),
+			"cost" => "\$".$this->gen(rand(10, 20)),
+			"i" => "\$".$this->gen(rand(10, 20)),
+			"j" => "\$".$this->gen(rand(10, 20)),
+			"k" => "\$".$this->gen(rand(10, 20))
+		];
+		
+		return 'function '.$decryptorName.'('.$var["string"].', '.$var["key"].', '.$var["binary"].' = true) { if ('.$var["binary"].') { '.$var["string"].' = base64_decode(strrev('.$var["string"].')); } '.$var["slen"].' = strlen('.$var["string"].'); '.$var["salt"].' = substr('.$var["string"].', '.$var["slen"].' - 5); '.$var["string"].' = substr('.$var["string"].', 0, ('.$var["slen"].' = '.$var["slen"].' - 5)); '.$var["klen"].' = strlen('.$var["key"].'); '.$var["new"].' = '.$var["r"].' = ""; '.$var["cost"].' = 1; for('.$var["i"].'='.$var["j"].'=0;'.$var["i"].'<'.$var["klen"].';'.$var["i"].'++) { '.$var["new"].' .= chr(ord('.$var["key"].'['.$var["i"].']) ^ ord('.$var["salt"].'['.$var["j"].'++])); if ('.$var["j"].' === 5) { '.$var["j"].' = 0; } } '.$var["new"].' = sha1('.$var["new"].'); for('.$var["i"].'='.$var["j"].'='.$var["k"].'=0;'.$var["i"].'<'.$var["slen"].';'.$var["i"].'++) { '.$var["r"].' .= chr( ord('.$var["string"].'['.$var["i"].']) ^ ord('.$var["new"].'['.$var["j"].'++]) ^ ord('.$var["salt"].'['.$var["k"].'++]) ^ ('.$var["i"].' << '.$var["j"].') ^ ('.$var["k"].' >> '.$var["j"].') ^ ('.$var["slen"].' % '.$var["cost"].') ^ ('.$var["cost"].' >> '.$var["j"].') ^ ('.$var["cost"].' >> '.$var["i"].') ^ ('.$var["cost"].' >> '.$var["k"].') ^ ('.$var["cost"].' ^ ('.$var["slen"].' % ('.$var["i"].' + '.$var["j"].' + '.$var["k"].' + 1))) ^ (('.$var["cost"].' << '.$var["i"].') % 2) ^ (('.$var["cost"].' << '.$var["j"].') % 2) ^ (('.$var["cost"].' << '.$var["k"].') % 2) ^ (('.$var["cost"].' * ('.$var["i"].'+'.$var["j"].'+'.$var["k"].')) % 3) ); '.$var["cost"].'++; if ('.$var["j"].' === '.$var["klen"].') { '.$var["j"].' = 0; } if ('.$var["k"].' === 5) { '.$var["k"].' = 0; } } return '.$var["r"].'; }';
 	}
 
 	/**
@@ -64,7 +382,109 @@ final class Obfuscator
 	 */
 	public function obfuscate()
 	{
+		if (!is_string($this->key)) {
+			throw new Exception("Key is not provided!");
+		}
 		$this->parse();
 		return $this->run();
+	}
+
+	/**
+	 * @param string $string
+	 * @param string $key
+	 * @param bool	 $binarySafe
+	 * @return string
+	 */
+	private static function encrypt($string, $key, $binarySafe = true)
+	{
+		$slen = strlen($string);
+		$klen = strlen($key);
+		$r = $newKey = "";
+		$salt = self::saltGenerator();
+		$cost = 1;
+		for($i=$j=0;$i<$klen;$i++) {
+			$newKey .= chr(ord($key[$i]) ^ ord($salt[$j++]));
+			if ($j === 5) {
+				$j = 0;
+			}
+		}
+		$newKey = sha1($newKey);
+		for($i=$j=$k=0;$i<$slen;$i++) {		
+			$r .= chr(
+				ord($string[$i]) ^ ord($newKey[$j++]) ^ ord($salt[$k++]) ^ ($i << $j) ^ ($k >> $j) ^
+				($slen % $cost) ^ ($cost >> $j) ^ ($cost >> $i) ^ ($cost >> $k) ^
+				($cost ^ ($slen % ($i + $j + $k + 1))) ^ (($cost << $i) % 2) ^ (($cost << $j) % 2) ^ 
+				(($cost << $k) % 2) ^ (($cost * ($i+$j+$k)) % 3)
+			);
+			$cost++;
+			if ($j === $klen) {
+				$j = 0;
+			}
+			if ($k === 5) {
+				$k = 0;
+			}
+		}
+		$r .= $salt;
+		if ($binarySafe) {
+			return strrev(base64_encode($r));
+		} else {
+			return $r;
+		}
+	}
+
+	/**
+	 * @param string $string
+	 * @param string $key
+	 * @param bool	 $binarySafe
+	 * @return string
+	 */
+	private static function decrypt($string, $key, $binarySafe = true)
+	{
+		if ($binarySafe) {
+			$string = base64_decode(strrev($string));
+		}
+		$slen = strlen($string);
+		$salt = substr($string, $slen - 5);
+		$string = substr($string, 0, ($slen = $slen - 5));
+		$klen = strlen($key);
+		$newKey = $r = "";
+		$cost = 1;
+		for($i=$j=0;$i<$klen;$i++) {
+			$newKey .= chr(ord($key[$i]) ^ ord($salt[$j++]));
+			if ($j === 5) {
+				$j = 0;
+			}
+		}
+		$newKey = sha1($newKey);
+		for($i=$j=$k=0;$i<$slen;$i++) {
+			$r .= chr(
+				ord($string[$i]) ^ ord($newKey[$j++]) ^ ord($salt[$k++]) ^ ($i << $j) ^ ($k >> $j) ^
+				($slen % $cost) ^ ($cost >> $j) ^ ($cost >> $i) ^ ($cost >> $k) ^
+				($cost ^ ($slen % ($i + $j + $k + 1))) ^ (($cost << $i) % 2) ^ (($cost << $j) % 2) ^ 
+				(($cost << $k) % 2) ^ (($cost * ($i+$j+$k)) % 3)
+			);
+			$cost++;
+			if ($j === $klen) {
+				$j = 0;
+			}
+			if ($k === 5) {
+				$k = 0;
+			}
+		}
+		return $r;
+	}
+
+	/**
+	 * @param int $n
+	 * @return string
+	 */
+	private static function saltGenerator($n = 5)
+	{
+		$s = range(chr(1), chr(0x7f));
+		$r = ""; $c=count($s)-1;
+		for($i=0;$i<$n;$i++) {
+			$r.= $s[rand(0, $c)];
+		}
+		return $r;
 	}
 }

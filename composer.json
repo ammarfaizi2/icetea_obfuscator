@@ -10,7 +10,9 @@
         }
     ],
     "minimum-stability": "stable",
-    "require": {},
+    "require": {
+        "nikic/php-parser": "^4.1"
+    },
     "autoload": {
         "psr-4": {
             "IceTeaObfuscator\\": "src/IceTeaObfuscator/"

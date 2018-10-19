@@ -3,6 +3,8 @@
 
 require __DIR__."/../vendor/autoload.php";
 
+define("TMP_DIR", "/tmp");
+
 use IceTeaObfuscator\Obfuscator;
 
 function err(string $msg): void
@@ -13,11 +15,12 @@ function err(string $msg): void
 
 array_shift($argv);
 
-$key = null;
+$key = "icetea123";
 $shebang = null;
 $outfile = "a.out.phx";
 $tSkip = 0;
 $files = [];
+
 foreach ($argv as $k => $v) {
 
 	if ($tSkip) {
@@ -70,17 +73,20 @@ foreach ($argv as $k => $v) {
 		$files[] = $v;
 	}
 }
-
-if (sizeof($files) === 0) {
+$sFile = sizeof($files);
+if ($sFile === 0) {
 	err("No input file");
+} else if ($sFile > 1) {
+	err("Cannot obfuscate multiple files.\nParsed files: ".json_encode($files));
 }
 
-var_dump([
-	"outfile" => $outfile,
-	"shebang" => $shebang,
-	"key" => $key
-]);
+// // Debug only
+// var_dump([
+// 	"outfile" => $outfile,
+// 	"shebang" => $shebang,
+// 	"key" => $key
+// ]);
 
-die;
-$st = new Obfuscator();
+$st = new Obfuscator($files[0], $outfile);
+$st->setKey($key);
 $st->obfuscate();
