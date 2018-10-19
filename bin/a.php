@@ -1,12 +1,12 @@
 <?php
 
-$a = "Hello World\n";
-$i = 0;
-while ($i <= 10) {
-	print "$a";
-	$i++;
+class a {
+	private $q = "qweqweqwe";
+	public function __construct()
+	{
+		echo $this->q;
+	}
 }
 
-class test {
-	
-}
+
+(new a);

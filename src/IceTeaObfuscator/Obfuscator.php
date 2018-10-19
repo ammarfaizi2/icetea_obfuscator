@@ -189,10 +189,14 @@ final class Obfuscator
 	private function gen2(int $n): string
 	{
 		$r = "";
-		$a = range(chr(0), chr(255));
+		$a = range(chr(0), chr(31));
 		$c = count($a) - 1;
-		for ($i=0; $i < $n; $i++) { 
-			$r.= $a[rand(0, $c)];
+		$d = range(chr(32), chr(255));
+		$e = count($d) - 1;
+		for ($i=0; $i < $n; $i++) {
+			rand(0, 1) ?
+				$r.= $a[rand(0, $c)] :
+					$r.= $d[rand(0, $e)];
 		}
 		return $r;
 	}
@@ -204,7 +208,7 @@ final class Obfuscator
 	private function varChanger($v): void
 	{
 		foreach($v as $k => $v) {
-			if ($v instanceof Variable) {				
+			if ($v instanceof Variable && $v->name !== "this") {
 				if (isset($this->memVar[$v->name])) {
 					$v->name = $this->memVar[$v->name];
 				} else {
@@ -249,15 +253,8 @@ final class Obfuscator
 		$this->parsedHash = sha1($this->parsed);
 		file_put_contents(TMP_DIR."/{$this->parsedHash}.phptmp", $this->parsed);
 		$this->parsed = trim(shell_exec("php -w ".TMP_DIR."/{$this->parsedHash}.phptmp"));
+		var_dump($this->parsed);
 		@unlink(TMP_DIR."/{$this->parsedHash}.phptmp");
-	}
-
-	/**
-	 * @return void
-	 */
-	private function prepareHashMatcher(): void
-	{
-
 	}
 
 	/**
@@ -265,24 +262,36 @@ final class Obfuscator
 	 */
 	private function prepareFunctions(): void
 	{
-		$this->prepareHashMatcher();
-
-		$decryptor = gzdeflate(
-			$this->generateDecryptor(
-				$this->decryptorName = $this->gen(512)
-			)
-		);
-		$this->func = [
-			"base64_decode" => "\${$this->gen(4096 * 5)}",
-			"gzinflate" => "\${$this->gen(4096 * 5)}",
+		$this->func = [			
+			"gzinflate" => "\${\"{$this->escape($this->gen2(4096 * 5))}\"}",
+			"explode" => "\${\"{$this->escape($this->gen2(4096))}\"}",
+			"file_get_contents" => "\${\"{$this->escape($this->gen2(4096))}\"}",
+			"preg_match" => "\${\"{$this->escape($this->gen2(4096))}\"}",
+			"sha1" => "\${\"{$this->escape($this->gen2(4096))}\"}",
 		];
 
 
 		foreach($this->func as $k => $func) {
-			$nodefunct = str_replace("*", "std", $this->gen2(1024));
+			$nodefunct = str_replace("*", "std", $this->gen2(4096 * 4));
 			$this->strFunc .= "{$func}=\"{$this->convert($k)}\"/*{$nodefunct}*/XOR";
 		}
+
+		$decryptor = gzdeflate(
+			$this->generateDecryptor(
+				$this->decryptorName = $this->gen(512)
+			).
+			$this->prepareHashMatcher()
+		);
+
 		$this->strFunc .= " eval({$this->func['gzinflate']}(\"{$this->escape($decryptor)}\"))XOR";
+	}
+
+	/**
+	 * @return string
+	 */
+	private function prepareHashMatcher(): string
+	{
+		return "(\$me=file_get_contents(explode(\"(\",__FILE__,0x2)[0])AND {$this->func['preg_match']}(\"\\x2f\\50\\77\\72\\134\\x24\\x5c\\44\\134\\44\\134\\57\\x7e\\x7e\\144\\51\\50\\x2e\\52\\51\\50\\77\\x3a\\144\\176\\x7e\\134\\57\\134\\44\\x5c\\x24\\134\\44\\x29\\x2f\\x55\\163\\151\",\$me,\$d)AND\$me=explode(\"\\137\\x5f\\150\\141\\154\\x74\\137\\x63\\x6f\\155\\160\\151\\154\\145\\x72\\x28\\51\\73\", \$me, 2)AND\$me=\"{\$me[0]}\\137\\x5f\\150\\141\\154\\x74\\137\\x63\\x6f\\155\\160\\151\\154\\145\\x72\\x28\\51\\73\"AND\$me=sha1(\$me)AND!(\$me!==\$d[1]))OR(sleep(3)XOR exit(\"\\123\\x65\\147\\155\\x65\\156\\x74\\141\\x74\\151\\157\\x6e\\x20\\x66\\141\\x75\\x6c\\164\\12\"));";
 	}
 
 	/**
@@ -309,6 +318,7 @@ final class Obfuscator
 			"{$this->func['gzinflate']}(\"".
 			$this->escape(gzdeflate($enc)).
 			"\")";
+
 		$this->obfuscated = 
 			"<?php\n\n".
 "/**
@@ -320,7 +330,7 @@ final class Obfuscator
  * @version 0.0.1
  * @link https://github.com/ammarfaizi2/icetea_obfuscator
  *
- * bb:\0\0\0\0\0\1\1\7\3\1\2\5\1\5\6\15\xa\2\5\15\1\2\4\1\3\3\3\3\7\5
+ * bb:"/*\0\0\0\0\0\1\1\7\3\1\2\5\1\5\6\15\xa\2\5\15\1\2\4\1\3\3\3\3\7\5*/."
  *
  *
  * #include <php/obfd.h>
@@ -335,8 +345,17 @@ final class Obfuscator
  */\n\nif (function_exists(\"signal\") && is_callable(\"signal\")) {\n\tsignal(SIGCHLD, SIG_IGN);\n}\n\n// * std::keyforkey 1\n\n\$keyforkey = \"{$this->convert($this->keyForKey)}\";\n\n".
 			"{$this->strFunc} ".
 			"eval({$enc});".
-			"__halt_compiler();{$this->gen2(1024)}";
+			"__halt_compiler();";
 		file_put_contents($this->outfile, $this->obfuscated);
+
+		$outfileHash = sha1_file($this->outfile);
+
+		file_put_contents(
+			$this->outfile,
+			"{$this->gen2(2048)}.ref.__gxx_personality_v0fopen@@GLIBC_2.2.5_ZN7C2ENSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEEE.symtab.strtab.shstrtab.interp.note.ABI-tag.note.gnu.build-id.gnu.hash.dynsym.dynstr.gnu.version.gnu.version_r.rela.dyn.rela.plt.init.plt.got.text.fini.rodata.eh_frame_hdr.eh_frame.gcc_except_table.init_array.fini_array.data.rel.ro.dynamic.data.bss.comment.debug_aranges.debug_info.debug_abbrev.debug_line.debug_str.debug_loc.debug_ranges@@@@/std::{hd}d\$\$\$/~~d{$outfileHash}d~~/\$\$\$END",
+			FILE_APPEND
+		);
+
 		return false;
 	}
 
