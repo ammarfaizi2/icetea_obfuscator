@@ -5,5 +5,47 @@ require __DIR__."/../vendor/autoload.php";
 
 use IceTeaObfuscator\Obfuscator;
 
+function err(string $msg): void
+{
+	fprintf(STDERR, "Error: %s\n", $msg);
+	exit(1);
+}
+
+array_shift($argv);
+
+$outfile = "a.out.phx";
+$tSkip = 0;
+foreach ($argv as $k => $v) {
+
+	if ($tSkip) {
+		continue;
+	}
+
+	if ($v[0] === "-") {
+
+		if ($v[1] === "-") {
+			
+		} else {
+
+			$vLen = strlen($v);
+			if ($v[1] === "o" && $vLen == 2) {
+				(
+					isset($argv[$k+1]) && $argv[$k+1][0] !== "-"
+				) or err("-o option needs a value.");
+				$outfile = $argv[$k+1];
+				$tSkip = 1;
+			} else {
+				$outfile = substr($v, 2);
+			}
+		}
+	}
+}
+
+var_dump([
+	"outfile" => $outfile
+]);
+
+die;
 $st = new Obfuscator();
 $st->obfuscate();
+
