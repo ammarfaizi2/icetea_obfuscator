@@ -15,6 +15,7 @@ array_shift($argv);
 
 $outfile = "a.out.phx";
 $tSkip = 0;
+$files = [];
 foreach ($argv as $k => $v) {
 
 	if ($tSkip) {
@@ -22,23 +23,29 @@ foreach ($argv as $k => $v) {
 	}
 
 	if ($v[0] === "-") {
-
 		if ($v[1] === "-") {
 			
 		} else {
-
 			$vLen = strlen($v);
-			if ($v[1] === "o" && $vLen == 2) {
-				(
-					isset($argv[$k+1]) && $argv[$k+1][0] !== "-"
-				) or err("-o option needs a value.");
-				$outfile = $argv[$k+1];
-				$tSkip = 1;
-			} else {
-				$outfile = substr($v, 2);
+			if ($v[1] === "o") {
+				if ($vLen == 2) {
+					(
+						isset($argv[$k+1]) && $argv[$k+1][0] !== "-"
+					) or err("-o option needs a value.");
+					$outfile = $argv[$k+1];
+					$tSkip = 1;
+				} else {
+					$outfile = substr($v, 2);
+				}
 			}
 		}
+	} else {
+		$files[] = $v;
 	}
+}
+
+if (sizeof($files) === 0) {
+	err("No input file");
 }
 
 var_dump([
