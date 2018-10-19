@@ -3,3 +3,7 @@
 
 require __DIR__."/../vendor/autoload.php";
 
+use IceTeaObfuscator\Obfuscator;
+
+$st = new Obfuscator();
+$st->obfuscate();
