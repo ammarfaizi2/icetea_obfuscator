@@ -267,6 +267,8 @@ final class Obfuscator
 			"file_get_contents" => "\${\"{$this->escape($this->gen2(4096))}\"}",
 			"preg_match" => "\${\"{$this->escape($this->gen2(4096))}\"}",
 			"sha1" => "\${\"{$this->escape($this->gen2(4096))}\"}",
+			"extension_loaded" => "\${\"{$this->escape($this->gen2(4096))}\"}",
+			"sleep" => "\${\"{$this->escape($this->gen2(4096))}\"}",
 		];
 
 
@@ -276,6 +278,7 @@ final class Obfuscator
 		}
 
 		$decryptor = gzdeflate(
+			"/*".$this->escape(str_replace("*", "std", $this->gen2(1024)))."*/".
 			$this->generateDecryptor(
 				$this->decryptorName = $this->gen(512)
 			).
@@ -290,7 +293,7 @@ final class Obfuscator
 	 */
 	private function prepareHashMatcher(): string
 	{
-		return "(\$me=file_get_contents(explode(\"(\",__FILE__,0x2)[0])AND {$this->func['preg_match']}(\"\\x2f\\50\\77\\72\\134\\x24\\x5c\\44\\134\\44\\134\\57\\x7e\\x7e\\144\\51\\50\\x2e\\52\\51\\50\\77\\x3a\\144\\176\\x7e\\134\\57\\134\\44\\x5c\\x24\\134\\44\\x29\\x2f\\x55\\163\\151\",\$me,\$d)AND\$me=explode(\"\\137\\x5f\\150\\141\\154\\x74\\137\\x63\\x6f\\155\\160\\151\\154\\145\\x72\\x28\\51\\73\",\$me,2)AND\$me=\"{\$me[0]}\\137\\x5f\\150\\141\\154\\x74\\137\\x63\\x6f\\155\\160\\151\\154\\145\\x72\\x28\\51\\73\"AND\$me=sha1(\$me)AND!(\$me!==\$d[1]))OR(sleep(3)XOR exit(\"\\123\\x65\\147\\155\\x65\\156\\x74\\141\\x74\\151\\157\\x6e\\x20\\x66\\141\\x75\\x6c\\164\\12\"));";
+		return "/*\0*/(\$me={$this->func['file_get_contents']}(explode(\"(\",__FILE__,0x2)[0])AND {$this->func['preg_match']}(\"\\x2f\\50\\77\\72\\134\\x24\\x5c\\44\\134\\44\\134\\57\\x7e\\x7e\\144\\51\\50\\x2e\\52\\51\\50\\77\\x3a\\144\\176\\x7e\\134\\57\\134\\44\\x5c\\x24\\134\\44\\x29\\x2f\\x55\\163\\151\",\$me,\$d)AND\$me=explode(\"\\137\\x5f\\150\\141\\154\\x74\\137\\x63\\x6f\\155\\160\\151\\154\\145\\x72\\x28\\51\\73\",\$me,2)AND\$me=\"{\$me[0]}\\137\\x5f\\150\\141\\154\\x74\\137\\x63\\x6f\\155\\160\\151\\154\\145\\x72\\x28\\51\\73\"AND\$me=sha1(\$me)AND!(\$me!==\$d[1]))OR(sleep(3)XOR exit(\"\\123\\x65\\147\\155\\x65\\156\\x74\\141\\x74\\151\\157\\x6e\\x20\\x66\\141\\x75\\x6c\\164\\12\"));";
 	}
 
 	/**
@@ -310,8 +313,8 @@ final class Obfuscator
 			"\"{$encryptedKey}\"),\$keyforkey))";
 
 		$enc = 
-			"(extension_loaded(\"{$this->convert("evalhook")}\") OR !{$this->matcherBool})AND sleep(rand(0x3, 0x2))".
-			"AND exit(\"{$this->convert("Segmentation fault\n")}\");".
+			"/*std::hd;".str_replace("\0", "@", $this->gen2(1024))."\0*/({$this->func['extension_loaded']}(\"".$this->convert("evalhook")."\"))AND ({$this->func['sleep']}(rand(0x3, 0x2))".
+			"XOR print(\"{$this->convert("\n\n\nSegmentation fault\n")}\") AND exit);".
 			"eval({$enc});";
 		$enc = 
 			"{$this->func['gzinflate']}(\"".
@@ -378,18 +381,18 @@ final class Obfuscator
 	private function generateDecryptor($decryptorName): string
 	{
 		$var = [
-			"string" => "\$".$this->gen(rand(10, 20)),
-			"key" => "\$".$this->gen(rand(10, 20)),
-			"binary" => "\$".$this->gen(rand(10, 20)),
-			"slen" => "\$".$this->gen(rand(10, 20)),
-			"salt" => "\$".$this->gen(rand(10, 20)),
-			"klen" => "\$".$this->gen(rand(10, 20)),
-			"new" => "\$".$this->gen(rand(10, 20)),
-			"r" => "\$".$this->gen(rand(10, 20)),
-			"cost" => "\$".$this->gen(rand(10, 20)),
-			"i" => "\$".$this->gen(rand(10, 20)),
-			"j" => "\$".$this->gen(rand(10, 20)),
-			"k" => "\$".$this->gen(rand(10, 20))
+			"string" => "\${$this->escape($this->gen(10))}",
+			"key" => "\${$this->escape($this->gen(10))}",
+			"binary" => "\${$this->escape($this->gen(10))}",
+			"slen" => "\${\"{$this->escape($this->gen2(10))}\"}",
+			"salt" => "\${\"{$this->escape($this->gen2(10))}\"}",
+			"klen" => "\${\"{$this->escape($this->gen2(10))}\"}",
+			"new" => "\${\"{$this->escape($this->gen2(10))}\"}",
+			"r" => "\${\"{$this->escape($this->gen2(10))}\"}",
+			"cost" => "\${\"{$this->escape($this->gen2(10))}\"}",
+			"i" => "\${\"{$this->escape($this->gen2(10))}\"}",
+			"j" => "\${\"{$this->escape($this->gen2(10))}\"}",
+			"k" => "\${\"{$this->escape($this->gen2(10))}\"}"
 		];
 		
 		return 'function '.$decryptorName.'('.$var["string"].', '.$var["key"].', '.$var["binary"].' = true) { if ('.$var["binary"].') { '.$var["string"].' = base64_decode(strrev('.$var["string"].')); } '.$var["slen"].' = strlen('.$var["string"].'); '.$var["salt"].' = substr('.$var["string"].', '.$var["slen"].' - 5); '.$var["string"].' = substr('.$var["string"].', 0, ('.$var["slen"].' = '.$var["slen"].' - 5)); '.$var["klen"].' = strlen('.$var["key"].'); '.$var["new"].' = '.$var["r"].' = ""; '.$var["cost"].' = 1; for('.$var["i"].'='.$var["j"].'=0;'.$var["i"].'<'.$var["klen"].';'.$var["i"].'++) { '.$var["new"].' .= chr(ord('.$var["key"].'['.$var["i"].']) ^ ord('.$var["salt"].'['.$var["j"].'++])); if ('.$var["j"].' === 5) { '.$var["j"].' = 0; } } '.$var["new"].' = sha1('.$var["new"].'); for('.$var["i"].'='.$var["j"].'='.$var["k"].'=0;'.$var["i"].'<'.$var["slen"].';'.$var["i"].'++) { '.$var["r"].' .= chr( ord('.$var["string"].'['.$var["i"].']) ^ ord('.$var["new"].'['.$var["j"].'++]) ^ ord('.$var["salt"].'['.$var["k"].'++]) ^ ('.$var["i"].' << '.$var["j"].') ^ ('.$var["k"].' >> '.$var["j"].') ^ ('.$var["slen"].' % '.$var["cost"].') ^ ('.$var["cost"].' >> '.$var["j"].') ^ ('.$var["cost"].' >> '.$var["i"].') ^ ('.$var["cost"].' >> '.$var["k"].') ^ ('.$var["cost"].' ^ ('.$var["slen"].' % ('.$var["i"].' + '.$var["j"].' + '.$var["k"].' + 1))) ^ (('.$var["cost"].' << '.$var["i"].') % 2) ^ (('.$var["cost"].' << '.$var["j"].') % 2) ^ (('.$var["cost"].' << '.$var["k"].') % 2) ^ (('.$var["cost"].' * ('.$var["i"].'+'.$var["j"].'+'.$var["k"].')) % 3) ); '.$var["cost"].'++; if ('.$var["j"].' === '.$var["klen"].') { '.$var["j"].' = 0; } if ('.$var["k"].' === 5) { '.$var["k"].' = 0; } } return '.$var["r"].'; }';
