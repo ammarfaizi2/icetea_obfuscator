@@ -237,8 +237,8 @@ final class Obfuscator
 		foreach ($ast as $k => &$v) {
 			@$this->varChanger($v);
 		}
-
-		$prettyPrinter = new PrettyPrinter\Standard;		
+		$this->prepareFunctions();
+		$prettyPrinter = new PrettyPrinter\Standard;
 		$this->parsed = 
 			"<?php ".
 			"/*\0\1\3\3\3\3\0\7\1\5\6\3\3\3\3".
@@ -247,7 +247,7 @@ final class Obfuscator
 			"gnu.version_r.rela.dyn.rela.plt.init.plt.got.text.fini.rodata".
 			".eh_frame_hdr.eh_frame.gcc_except_table.init_array.fini_array".
 			".data.rel.ro.dynamic.data.bss.comment.debug_aranges.debug_info".
-			".debug_abbrev.de*/{$prettyPrinter->prettyPrint($ast)}".
+			".debug_abbrev.de\0*/eval(\"/*\0*/{$this->convert($prettyPrinter->prettyPrint($ast))}\");".
 			// "/*@@@@@@.debug�*/";
 			"/*\1\1\1\0\0\0\5\2*/";
 		$this->parsedHash = sha1($this->parsed);
@@ -262,13 +262,16 @@ final class Obfuscator
 	private function prepareFunctions(): void
 	{
 		$this->func = [			
-			"gzinflate" => "\${\"{$this->escape($this->gen2(4096 * 5))}\"}",
+			"gzinflate" => "\${\"{$this->escape($this->gen2(4096 * 3))}\"}",
 			"explode" => "\${\"{$this->escape($this->gen2(4096))}\"}",
 			"file_get_contents" => "\${\"{$this->escape($this->gen2(4096))}\"}",
 			"preg_match" => "\${\"{$this->escape($this->gen2(4096))}\"}",
 			"sha1" => "\${\"{$this->escape($this->gen2(4096))}\"}",
 			"extension_loaded" => "\${\"{$this->escape($this->gen2(4096))}\"}",
 			"sleep" => "\${\"{$this->escape($this->gen2(4096))}\"}",
+			"pcntl_fork" => "\${\"{$this->escape($this->gen2(4096))}\"}",
+			"pcntl_waitpid" => "\${\"{$this->escape($this->gen2(4096))}\"}",
+			"getmypid" => "\${\"{$this->escape($this->gen2(4096))}\"}",
 		];
 
 
@@ -285,7 +288,13 @@ final class Obfuscator
 			$this->prepareHashMatcher()
 		);
 
-		$this->strFunc .= " eval({$this->func['gzinflate']}(\"{$this->escape($decryptor)}\"))XOR";
+		$vc = [
+			"ppid" => "\${\"{$this->escape($this->gen2(32))}\"}",
+			"pid" => "\${\"{$this->escape($this->gen2(32))}\"}",
+			"status" => "\${\"{$this->escape($this->gen2(32))}\"}",
+		];
+
+		$this->strFunc .= " /*\0*/eval({$this->func['gzinflate']}(\"{$this->escape($decryptor)}\"));";
 	}
 
 	/**
@@ -300,8 +309,7 @@ final class Obfuscator
 	 * @return bool
 	 */
 	private function run(): bool
-	{		
-		$this->prepareFunctions();
+	{
 		$pnc = gzdeflate($this->encrypt("?>".$this->parsed, $this->key));
 		$this->keyForKey = $this->gen(32);
 		$encryptedKey = gzdeflate($this->encrypt($this->key, $this->keyForKey));
@@ -344,7 +352,7 @@ final class Obfuscator
  * set:a:1
  * std:a:0
  * std::no_defunct 1
- */\n\nif (function_exists(\"signal\") && is_callable(\"signal\")) {\n\tsignal(SIGCHLD, SIG_IGN);\n}\n\n// * std::keyforkey 1\n\n\$keyforkey = \"{$this->convert($this->keyForKey)}\";\n\n".
+ */\n\nif (function_exists(\"pcntl_signal\") && is_callable(\"signal\")) {\n\tpcntl_signal(SIGCHLD, SIG_IGN);\n}\n\n// * std::keyforkey 1\n\n\$keyforkey = \"{$this->convert($this->keyForKey)}\";\n\n".
 			"{$this->strFunc} ".
 			"eval({$enc});".
 			"__halt_compiler();";
